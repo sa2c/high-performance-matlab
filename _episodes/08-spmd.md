@@ -10,7 +10,7 @@ objectives:
 - "To learn to use the **spmd** construct in MATLAB."
 - "To learn to create distributed arrays."
 - "To learn to work in **pmode**."
-keypoints:
+key points:
 - "**spmd** offers a more flexible environment for
    parallel programming when compared with **parfor**."
 - "All the workers in the pool execute the statements
@@ -21,13 +21,13 @@ keypoints:
 ## spmd
 * **spmd** stands for **s**ingle **p**rogram **m**ultiple **d**ata.
 SPMD, in the parallel computing paradigm, usually refers to a parallel program
-written for distributed-memory architectures using the Message-Passing Inteface (MPI).
+written for distributed-memory architectures using the Message-Passing Interface (MPI).
 * **s**ingle **p**rogram refers to the fact that the statements inside
   the block execute on all the workers in the active parallel loop.
 * **m**ultiple **d**ata aspect refers to the ability of the workers (labs) to work
   on a different data set while executing the same code.
 
-The basic syntax for **smpd** programs in MATLAB is:
+The basic syntax for **spmd** programs in MATLAB is:
 ~~~
 % execution on master/client
 spmd (n)
@@ -62,89 +62,184 @@ participating in the parallel pool corresponding to that **spmd** block.
 To understand how **spmd** in MATLAB works, let's create a
 MATLAB script with the following code and run it:
 ~~~
-A = eye(5,5);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% this section is run on the host
 
+fprintf("This is before the spmd block so its running on the host.\n")
+A = eye(5,5)
+B = 7
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% everything inside this spmd block is run on each worker
 spmd
-    Adist = codistributed(A);
-    getLocalPart(Adist)
+    fprintf("Hello this is Worker %d \n", labindex)
+    A = A + labindex
+
+    C = B + 5;
 
     if(labindex == 1)
-      B = magic(3);
+      D = magic(3);
     else
-      B = magic(5);
+      D = magic(5);
     end
 end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% we are now back to the host
+print("This is After the spmd block so its running on the host.\n")
 
+% note how A now has one copy for each worker
+A
+% although we used B inside the spmd block unlike A it hasn't been copied
+% because we only read the value and didn't change it
 B
-
-B{1}
-
-B{2}
+% C and D are local variables so we have one copy for each worker
+C
+D
+% you can also access each workers local copies using the following syntax.
+% However this can only be done outside the spmd block and cannot be altered.
+D{1}
+D{2}
 ~~~
 {: .language-matlab}
 
 When the program is run successfully (with a parallel pool
-with 2 workers), we get the following output:
+with 4 workers), we get the following output:
 ~~~
-Lab 1:
+This is before the spmd block so its running on the host.
 
-  ans =
-    1    0    0
-    0    1    0
-    0    0    1
-    0    0    0
-    0    0    0
+A =
 
-Lab 2:
+     1     0     0     0     0
+     0     1     0     0     0
+     0     0     1     0     0
+     0     0     0     1     0
+     0     0     0     0     1
 
-  ans =
-    0    0
-    0    0
-    0    0
-    1    0
-    0    1
 
 B =
-    Lab 1: class = double, size = [3 3]
-    Lab 2: class = double, size = [5 5]
 
-  ans =
-    8    1    6
-    3    5    7
-    4    9    2
+     7
 
-  ans =
-    17    24    1    8    15
-    23     5    7   14    16
-     4     6   13   20    22
-    10    12   19   21     3
-    11    18   25    2     9
+Lab 1: 
+  Hello this is Worker 1 
+  
+  A =
+  
+       2     1     1     1     1
+       1     2     1     1     1
+       1     1     2     1     1
+       1     1     1     2     1
+       1     1     1     1     2
+  
+Lab 2: 
+  Hello this is Worker 2 
+  
+  A =
+  
+       3     2     2     2     2
+       2     3     2     2     2
+       2     2     3     2     2
+       2     2     2     3     2
+       2     2     2     2     3
+  
+Lab 3: 
+  Hello this is Worker 3 
+  
+  A =
+  
+       4     3     3     3     3
+       3     4     3     3     3
+       3     3     4     3     3
+       3     3     3     4     3
+       3     3     3     3     4
+  
+Lab 4: 
+  Hello this is Worker 4 
+  
+  A =
+  
+       5     4     4     4     4
+       4     5     4     4     4
+       4     4     5     4     4
+       4     4     4     5     4
+       4     4     4     4     5
+  
+This is After the spmd block so its running on the host.
+ 
+A =
+ 
+   Lab 1: class = double, size = [5  5]
+   Lab 2: class = double, size = [5  5]
+   Lab 3: class = double, size = [5  5]
+   Lab 4: class = double, size = [5  5]
+ 
+
+B =
+
+     7
+
+ 
+C =
+ 
+   Lab 1: class = double, size = [1  1]
+   Lab 2: class = double, size = [1  1]
+   Lab 3: class = double, size = [1  1]
+   Lab 4: class = double, size = [1  1]
+ 
+ 
+D =
+ 
+   Lab 1: class = double, size = [3  3]
+   Lab 2: class = double, size = [5  5]
+   Lab 3: class = double, size = [5  5]
+   Lab 4: class = double, size = [5  5]
+ 
+
+ans =
+
+     8     1     6
+     3     5     7
+     4     9     2
+
+
+ans =
+
+    17    24     1     8    15
+    23     5     7    14    16
+     4     6    13    20    22
+    10    12    19    21     3
+    11    18    25     2     9
 ~~~
 {: .output}
 
 
 The above program:
 * creates matrix `A` as a 5x5 identity matrix on the client/master.
+* creates the variable `B` as an integer on the client/master.
 * then opens an **spmd** block.
-* creates a distributed array `Adist` by copying the contents of `A`.
-* gets the local part of `Adist` and prints it to the screen.
-* creates a local variable `B`.
+* Changes the variable `A` by adding the local variable `labindex` to
+each element. .
+* creates a local variable `C` set as `B + 5`.
 * ends the **spmd** block.
-* prints the contents of `B`.
-* prints the contents of `B{1}`.
-* prints the contents of `B{2}`.
+* prints the contents of `A`,`B`,`C` and `D`.
+* prints the contents of `D{1}`.
+* prints the contents of `D{2}`.
 
 In the above program:
-* `A` is an array variable that is local to the client/master.
-* `Adist` is the distributed array, meaning that the contents of
-  `Adist` are stored among the workers. Each worker stores only
-  a portion of `Adist`.
-* array variable `B` is local to each worker in the parallel pool.
-  In the strict sense of parallel programming, accessing of `B`
-  using `B{1}` and `B{2}` is *illegal* because it is created
-  inside the **spmd** block. But, MATLAB allows this. In MATLAB `B`
-  is called as a *composite* variable.
-* `labindex` is the rank of the worker.
+* `A` and `B` are variables that are are local to the client/master.
+* Inside the spmd block we also have access to these variables.
+* However, because we alter the value of `A` inside the block. This implicitly copies `A`
+so each worker now has its own local copy which are then altered. When we come to print this
+we therefore get one copy of `A` for each worker.
+* This is not the case for `B` because we simply use it to set a new local variable `C` and don't alter its value.
+* The variables `C` and `D` are local to each worker in the parallel pool.
+* `labindex` is the rank of the worker. We can use this to alter the task based on the worker.
+In this case we used it to give each worker a different value of variable `D`.
+* We can access the specific local values for each worker outside the spmd block using the `D{1}` and `D{2}` syntax.
+* In the strict sense of parallel programming, accessing of `D` is *illegal* because it is created
+  inside the **spmd** block. However, MATLAB allows.
+* In MATLAB variables like this are is called are called *composite* variables.
+* Composite variables can also be created outside of an spmd block using the `Composite()` function.
 
 
 ## Variable persistence in sequences of **spmd** constructs
@@ -225,21 +320,215 @@ ans =
 > {: .solution}
 {: .challenge}
 
+## Distributed data
+One of the fundamental ideas of parallel computing is to distribute
+the data among the computing units so that we can store and process
+significantly large amount of data, (and in short time too). The skill
+in developing programs for parallel computing is in understanding how
+the data is stored, and in managing the data efficiently. In MATLAB,
+distributed arrays can be created using several options.
 
+A distributed array can be created from the existing array on
+the client/master. For example:
+~~~
+A = eye(5,5);  % array on the client/master
+spmd
+    Adist = codistributed(A);  % array distributed among the workers
+end
+~~~
+{: .language-matlab}
+
+A distributed array can also be created by using array constructors, as seen
+in the previous example. To create a distributed array of size $5\times5$ and
+initialise to zero:
+~~~
+spmd
+    Adist = zeros(5, 5, 'codistributed');  % array distributed among the workers
+end
+~~~
+{: .language-matlab}
+
+As seen in the previous examples, the default distribution strategy is 
+the distribution by columns. This behaviour can be changed by passing
+a distributor object with appropriate options to the **codistributed**
+function, or using the **redistribution** function:
+
+~~~
+A = eye(5,5);  % array on the client/master
+spmd
+    % codistribution object with the options to distribute
+    % the array using 1d (one-dimensional) distribution
+    % in dimension 1 (rows)
+    distobj = codistributor('1d', 1);
+
+    Adist = codistributed(A, distobj);  % array distributed among the workers
+end
+~~~
+{: .language-matlab}
+
+~~~
+A = eye(5,5);  % array on the client/master
+spmd
+    % default distribution using column-wise distribution
+    Adist = codistributed(A);  % array distributed among the workers
+
+    % codistribution object with the options to distribute
+    % the array using 1d (one-dimensional) distribution
+    % in dimension 1 (rows)
+    distobj = codistributor('1d', 1);
+
+    % redistributed array using row-wise distribution
+    Adist = redistribute(Adist, distobj);
+end
+~~~
+{: .language-matlab}
+
+
+## distributed vs co-distributed arrays
+So far we have seen the use of the **codistributed** function for creating
+distributed arrays in MATLAB PCT. MATLAB offers another function
+**distributed** which works in a similar fashion but with a slight difference.
+
+**distributed** and **codistributed** are the data type of the arrays distributed
+in the parallel pool - the data type is **distributed** on the client and
+**codistributed** on the workers.
+
+The main difference between **distributed** and **codistributed** functions
+is in the amount of flexibility in controlling the distribution pattern.
+* **distributed**:
+  * Should be used outside the `spmd` block.
+  * Is called from the client/master, and it creates an array
+    that is distributed among all the workers in the parallel pool.
+  * We *cannot* control the distribution details when using this function.
+  * Use **distributed** to create a distributed array by copying
+    the data on the client workspace or a data-store, using the default
+    distribution pattern.
+* **codistributed**
+  * When used in an `spmd` block (or in **pmode**), **codistributed**
+    creates an array that is distributed among the workers in the
+    parallel pool. But when used outside an `spmd` block, the entire
+    content of the array is stored on the client.
+  * Is called by all the workers in the pool, and it creates an array
+    that is distributed among all the workers in the parallel pool.
+  * We CAN control the distribution details when using this function,
+    for example, row-wise distribution or block distribution instead of
+    the default column-wise distribution.
+  * Use **codistributed** to create a distributed array by copying
+    the data on the client workspace or a data-store, using either the default
+    distribution pattern or a distribution pattern of our liking.
+
+
+> ## **distributed** inside **spmd**
+> **distributed** inside `spmd` block creates a variable
+  of class `spmdlang.InvalidRemote`. **Never** use **distributed**
+  inside the `spmd` block.
+{: .callout}
+
+> ## Exercise on distributed arrays
+> The following Matlab code contains and error. Run the code from a script, and
+> observe the output:
+>
+> What is the error and how could you fix the code?
+> ~~~
+> A = eye(5,5);  % array on the client/master
+>
+> Adist1 = distributed(A)  % distributed array
+> Adist3 = codistributed(A)  % distributed array
+> spmd
+>     Adist2 = codistributed(A);  % distributed array
+> end
+>
+> disp("Adist1 - Adist2")
+> Adist1 - Adist2
+> disp("Adist1 - Adist3")
+> Adist1 - Adist3
+> ~~~
+> {: .language-matlab}
+>
+> > ## Solution
+> > `Adist1` and `Adist2` are distributed arrays distributed among the workers.
+> > `Adist3` is created as a distributed array but all of its contents are
+stored only on the client.
+> > Operation `Adist1 - Adist2` works fine. But MATLAB throws an error
+`"It is illegal to mix distributed and codistributed arrays in an operation."`
+when it tries to executre `Adist1 - Adist3`. To fix this we need to put the
+assignment of `Adist3` inside the spmd block. 
+> {: .solution}
+{: .challenge}
+
+## Gathering data
+We have looked at techniques for distributing the data among
+the workers in a parallel pool. However, often, we need to gather from all
+the workers, for example, for plotting. MATLAB PCT provides a function
+`gather` for this purpose.
+
+The output of `gather` varies depending upon where it is called in the code.
+
+- Inside the **spmd** block:
+    * `gather` collects (gathers) all the elements of a distributed array from all the workers and sends
+    the entire collection to all the workers. This is the default behaviour if
+    no second argument is specified.
+    * `gather` can also gather all the elements of a distrbuted array from all the workers and send them
+    to a particular worker, if a second argument is specified.
+    `B=gather(A,labnum)` gathers all the elements of `A` from all the workers onto the worker
+    `labnum`.
+
+- Outside the **spmd** block:
+    * `gather` gathers all the elements of a distributed array from each worker to the client workspace.
+
+### `gather` with co-distributed arrays:
+~~~
+n = 20;
+spmd
+    A = codistributed(magic(n));  % a codistributed array on all workers
+    B = gather(A);                % gathers all elements to all workers
+    C = gather(A,2);              % gathers all elements to worker 2
+end
+D = gather(A);                    % gathers all elements to the client
+~~~
+{: .language-matlab}
+
+
+### `gather` with distributed arrays.
+~~~
+n = 20;
+A = distributed(magic(n));  % a distributed array on all workers
+B = gather(A);              % returns the array to the client
+~~~
+{: .language-matlab}
+
+
+{% include links.md %}
 
 ## Explicit data transfer
-In a parallel program, we are often required to transfer data between
-the workers. Here are some examples of this:
+In a parallel program, we are often required to transfer data between workers. Some real
+world examples of this include:
 * To get the interface fluxes from the neighbouring element in finite element analysis;
 * In evaluating stencils/operators in finite difference schemes;
 * For some averaging operations for pixels in image processing;
-* Et cetera.
 
 The **spmd** construct offers a flexible environment for explicit data
-transfer between the workers. MATLAB PCT provides its own functions that
-are equivalent to `MPI_Send`, `MPI_Receive`, `MPI_SendReceive`, `MPI_Barrier`,
-`MPI_Broadcast`, and others in the MPI paradigm. The MATLAB equivalent of these functions
-are `labSend`, `labReceive`, `labSendReceive`, `labBarrier` and `labBroadcast`.
+transfer between the workers. For communication between workers MATLAB PCT provides the
+following functions [`labSend`](https://uk.mathworks.com/help/parallel-computing/labsend.html)
+, [`labReceive`](https://uk.mathworks.com/help/parallel-computing/labreceive.html),
+[`labSendReceive`](https://uk.mathworks.com/help/parallel-computing/labsendreceive.html),
+[`labBarrier`](https://uk.mathworks.com/help/parallel-computing/labbarrier.html)
+and [`labBroadcast`](https://uk.mathworks.com/help/parallel-computing/labbroadcast.html?s_tid=doc_ta).
+
+> ## Similarities of Matlab PCT to MPI.
+> Users who are familiar with the MPI standard used for process communication in C/C++ and FORTRAN
+> may have noticed a similarity of Matlab PCT's functions to `MPI_Send`, `MPI_Receive`,`MPI_SendReceive`,
+> `MPI_Barrier`,`MPI_Broadcast`, and others in the MPI paradigm. This is no accident, matlab actually
+> calls these functions under the hood and they work in much the same way. So if you have some familiarity
+> with MPI the skills will transfer over quite easily. The only major difference is that in matlab PCT ***all
+> communication is blocking*** (i,.e. it has no equivent fuction to`MPI_ISend` ect).
+{: .callout}
+
+## `labSend`
+ * function to send `data` given as an input argumant to another worker
+ * `data` can be any supported MATLAB data type.
+ * `rcvLabIdx` must be a positive integer, or vector integers between 1 and *numlabs*.
+ * `tag` is optional and must be a non-negative integer from 0 to 32767. Default value is 0.
 
 ### Syntax and usage for `labSend`
 ~~~
@@ -257,12 +546,8 @@ labSend(a, 3, 1234)     % sends array `a` and a tag value 1234 to the worker 3.
 ~~~
 {: .language-matlab}
 
-> ## `labSend`
-> * `data` can be any supported MATLAB data type.
-> * `rcvLabIdx` must be a positive integer, or vector integers between 1 and *numlabs*.
-> * `tag` must be a nonnegative integer from 0 to 32767. Default value is 0.
-{: .callout}
-
+## `labRecieve`
+ * this is a function to receive data from another worker that has previously called `labSend`
 
 ### Syntax and usage for `labReceive`
 ~~~
@@ -276,12 +561,95 @@ a = labReceive(1, 1234)            % receives the data from lab 1 that matches t
 ~~~
 {: .language-matlab}
 
+## `labSendReceive`
+ * `labSendReceive` is a convenience functon. As the name sudgests is equivelent to `labSend` immediately
+ followed by `labReceive`.
+
+### Syntax and usage for `labSendReceive`
+~~~
+%`data = labSendReceive(rcv_index,src_index,dataSent,tag)`
+
+% `rcv_index` is the labindex of the worker to which data is to be sent.
+% `src_index` is the labindex of the worker that is sending data
+% `dataSent` is the data you wish to send
+
+a = labSendReceive(2,1,data)
+% this is equivent to:
+labSend(data,2)
+a = labReceive(1);
+~~~
+{: .language-matlab}
+
+## `labBroadcast`
+* this is a special version of `labSend` that sends the given data to all other workers
+
+
+### Syntax and usage for `labBroadcast`
+~~~
+% shared_data = labBroadcast(src_Index,data)
+% shared_data = labBroadcast(src_Index)
+
+
+% if data is given it sends the specified data to all executing workers. The data is broadcast
+% from the worker with labindex == src_Index, and is received by all other workers.
+shared_data = labBroadcast(src_Index,data)
+
+% if data is NOT given the worker waits to receive data from a worker with labindex == src_Index.
+shared_data = labBroadcast(src_Index)
+
+src_Index = 1;
+if labindex == src_Index
+  data = randn(10);
+  shared_data = labBroadcast(src_Index,data);
+else
+  shared_data = labBroadcast(src_Index);
+end
+~~~
+{: .language-matlab}
+
+
+## `labBarrier`
+ * pauses the current worker at this line until every worker reaches this line.
+ * Not used for communication as such. This is more for process synchronisation, that is ensuring
+ that all workers have completed up to that point in the block before moving on.
+ * Be careful when using this, especially within complex if statements. You need to ensure that every
+ worker will eventually reach this line as otherwise your program will simply hang forever.
+
+## `gop`
+ * `gop` stands for global operation across all workers.
+ * allows you to call a function (either built in or user defined) on all workers inside an smd block.
+ * the result of this function can then either be sent to a specfic worker or broadcast to all of them.
+ 
+### Syntax and usage for `gop`
+~~~
+% res = gop(FUN,x)
+% res = gop(FUN,x,targetlab)
+
+res = gop(FUN,x); % performs the function FUN for all values of the input x, and duplicates the result on all workers.
+res = gop(FUN,x,targetlab); % performs the function FUN, and places the result into res only on the worker indicated by targetlab. res is set to [] on all other workers.
+
+% This example shows how to calculate the sum and maximum values for x among all workers.
+x = Composite(); 
+x{1} = 3;
+x{2} = 1;
+x{3} = 4;
+x{4} = 2;
+spmd
+    xsum = gop(@plus,x);
+    xave = gop(@mean,x);
+    xmax = gop(@max,x,1);
+end
+xsum{1:4}
+xave{1:4}
+xmax{1:4}
+~~~
+{: .language-matlab}
 
 > ## Blocking communication
-> The `labSend` function can block the execution until the
-corresponding `labReceive` function is executed in the receiving lab.
-This can lead to communication blockage between the workers, which makes this
-program hang forever.
+> With MATLAB PCT all communication is Blocking. This means the `labSend` function can block the execution until the
+corresponding `labReceive` function is executed in the receiving lab. This can lead to the program hanging
+forever waiting to send/receive information. Thus we need to make sure that every `labSend` has a call from
+another worker with a corresponding `labReceive` (and vice versa).
 {: .callout}
 
 > ## Exercise on communication
@@ -395,207 +763,3 @@ shows MATLAB's Parallel Command Window with eight workers (labs):
 ![Parallel pool status indicator](../fig/pmode-exercise.png)
 
 
-## Distributed data
-One of the fundamental ideas of parallel computing is to distribute
-the data among the computing units so that we can store and process
-significantly large amount of data, (and in short time too). The skill
-in developing programs for parallel computing is in understanding how
-the data is stored, and in managing the data efficiently. In MATLAB,
-distributed arrays can be created using several options.
-
-A distributed array can be created from the existing array on
-the client/master. For example:
-~~~
-A = eye(5,5);  % array on the client/master
-spmd
-    Adist = codistributed(A);  % array distributed among the workers
-end
-~~~
-{: .language-matlab}
-
-A distributed array can also be created by using array constructors, as seen
-in the previous example. To create a distributed array of size $5\times5$ and
-initialise to zero:
-~~~
-spmd
-    Adist = zeros(5, 5, 'codistributed');  % array distributed among the workers
-end
-~~~
-{: .language-matlab}
-
-As seen in the previous examples, the default distribution strategy is 
-the distribution by columns. This behaviour can be changed by passing
-a distributor object with appropriate options to the **codistributed**
-function, or using the **redistribution** function:
-
-~~~
-A = eye(5,5);  % array on the client/master
-spmd
-    % codistribution object with the options to distribute
-    % the array using 1d (one-dimensional) distribution
-    % in dimension 1 (rows)
-    distobj = codistributor('1d', 1);
-
-    Adist = codistributed(A, distobj);  % array distributed among the workers
-end
-~~~
-{: .language-matlab}
-
-~~~
-A = eye(5,5);  % array on the client/master
-spmd
-    % default distribution using column-wise distribution
-    Adist = codistributed(A);  % array distributed among the workers
-
-    % codistribution object with the options to distribute
-    % the array using 1d (one-dimensional) distribution
-    % in dimension 1 (rows)
-    distobj = codistributor('1d', 1);
-
-    % redistributed array using row-wise distribution
-    Adist = redistribute(Adist, distobj);
-end
-~~~
-{: .language-matlab}
-
-
-## distributed vs codistributed arrays
-So far we have seen the use of the **codistributed** function for creating
-distributed arrays in MATLAB PCT. MATLAB offers another function
-**distributed** which works in a similar fashion but with a slight difference.
-
-**distributed** and **codistributed** are the data type of the arrays distributed
-in the parallel pool - the data type is **distributed** on the client and
-**codistributed** on the workers.
-
-The main difference between **distributed** and **codistributed** functions
-is in the amount of flexibility in controlling the distribution pattern.
-* **distributed**:
-  * Should be used outside the `spmd` block.
-  * Is called from the client/master, and it creates an array
-    that is distributed among all the workers in the parallel pool.
-  * We *cannot* control the distribution details when using this function.
-  * Use **distributed** to create a distributed array by copying
-    the data on the client workspace or a datastore, using the default
-    distribution pattern.
-* **codistributed**
-  * When used in an `spmd` block or in **pmode**, **codistributed**
-    creates an array that is distributed among the workers in the
-    parallel pool. But when used outside an `spmd` block, the entire
-    content of the array is stored on the client.
-  * Is called by all the workers in the pool, and it creates an array
-    that is distributed among all the workers in the parallel pool.
-  * We CAN control the distribution details when using this function,
-    for example, row-wise distribution or block distribution instead of
-    the default column-wise distribution.
-  * Use **codistributed** to create a distributed array by copying
-    the data on the client workspace or a datastore, using either the default
-    distribution pattern or a distribution pattern of our liking.
-
-
-> ## **distributed** inside `spmd` or **pmode**
-> **distributed** inside `spmd` block creates a variable
-  of class `spmdlang.InvalidRemote`. **Never** use **distributed**
-  inside the `spmd` block or in **pmode**.
-{: .callout}
-
-> ## Exercise on distributed arrays
-> Run the following code from a script (not in pmode), and
-> observe the output:
-> ~~~
-> A = eye(5,5);  % array on the client/master
->
-> Adist1 = distributed(A)  % distributed array
-> Adist3 = codistributed(A)  % distributed array
-> spmd
->     Adist2 = codistributed(A);  % distributed array
-> end
->
-> disp("Adist1 - Adist2")
-> Adist1 - Adist2
-> disp("Adist1 - Adist3")
-> Adist1 - Adist3
-> ~~~
-> {: .language-matlab}
->
-> > ## Solution
-> > `Adist1` and `Adist2` are distributed arrays distributed among the workers.
-> > `Adist3` is created as a distributed array but all of its contents are
-stored only on the client.
-> > Operation `Adist1 - Adist2` works fine. But MATLAB throws an error
-`"It is illegal to mix distributed and codistributed arrays in an opeeration."`
-when it tries to executre `Adist1 - Adist3`.
-> {: .solution}
-{: .challenge}
-
-
-> ## Exercise - Parallel direct solver
-> In this exercise, we use the parallel direct solver, the `\` operator,
-> in MATLAB PCT to solve a matrix system.
-> ~~~
-> clc;
-> 
-> n = 1000;
-> A = randi(100,n,n);
-> ADist = distributed(A);
-> 
-> b = sum(A,2);
-> bDist = sum(ADist,2);
-> 
-> xEx = ones(n,1);
-> xDistEx = ones(n,1,'distributed');
-> 
-> tic
-> x = A\b;
-> err = norm(xEx-x)
-> toc
-> 
-> tic
-> xDist = ADist\bDist;
-> errDist = norm(xDistEx-xDist)
-> toc
-> ~~~
-> {: .language-matlab}
-{: .challenge}
-
-## Gathering data
-Until now, we have looked at techniques for distributing the data among
-the workers in a parallel pool. Often, we need to gather from all
-the workers, for example, for plotting. MATLAB PCT provides a function
-`gather` for this purpose.
-
-The output of `gather` varies depending upon where it is called in the code.
-* Inside the **spmd** block, `gather` gathers all the elements of an array
-from all the workers and dumps the entire collection to all the workers. This
-is equivalent to `MPI_Allgather` in the MPI. This is the default behaviour if
-no second argument is specified.
-* Inside the **spmd** block, `gather` gathers all the elements of an array
-from all the workers and dumps the entire collection to a particular worker,
-if a second argument is specified.  `B=gather(A,labnum)` gathers all the
-elements of `A` from all the workers onto the worker `labnum`.
-* Outside the **spmd** block, `gather` gathers all the elements to the client
-workspace.
-
-`gather` with codistributed arrays:
-~~~
-n = 20;
-spmd
-    A = codistributed(magic(n));  % a codistributed array on all workers
-    B = gather(A);                % gathers all elements to all workers
-    C = gather(A,2);              % gathers all elements to worker 2
-end
-D = gather(A);                    % gathers all elements to the client
-~~~
-{: .language-matlab}
-
-
-`gather` with distributed arrays.
-~~~
-n = 20;
-A = distributed(magic(n));  % a distributed array on all workers
-B = gather(A);              % returns the array to the client
-~~~
-{: .language-matlab}
-
-
-{% include links.md %}
