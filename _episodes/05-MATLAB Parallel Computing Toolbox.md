@@ -197,6 +197,9 @@ running multiple jobs.
 >* The number of workers requested should not be more than that
 specified in the profile preferences. If we request more workers than
 those specified in the profile, MATLAB throws an error.
+>* Parpool can be quite hungry when it comes to ram useage. Each worker
+has essentially its own matlab enviroment therefore ram useage when using a parpool
+can be quite considerable.
 {: .callout}
 
 > ## matlabpool
