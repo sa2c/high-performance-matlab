@@ -253,6 +253,7 @@ let us do the following exercise:
 > spmd
 >    fprintf("Hello ... %d \n", labindex)
 > end
+> delete(gcp)
 > ~~~
 > {: .language-matlab}
 {: .challenge}
