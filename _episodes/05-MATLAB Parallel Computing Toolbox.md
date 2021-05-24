@@ -136,11 +136,23 @@ clicking on the pool status indicator at the lower-left corner of
 the MATLAB desktop window:
 ![Parallel pool status indicator](../fig/matlab-pct-status.png)
 
+> ## Idle timeout
+> By default parallel pools have an idle timeout of 30 minutes that
+> is the poll will close automatically after 30 minutes of inactivity.
+>
+>This timer resets when matlab detects activity within the pool
+>(i.e. a parfor loop or spmd block). If you don't' like this behaviour you
+>can extend or disable time timeout in two ways:
+> 1. passing in `IdleTimeout` as an input argument to `parpool` you also
+>need to supply a number of minutes (note you can pass in 0 if you want
+>to disable the timeout entirely). e.g. `parpool(2,'IdleTimeout',0)`
+> 2. you can disable it using the GUI under [preferences](https://uk.mathworks.com/help/parallel-computing/parallel-preferences.html).
+>On the Home tab in the Environment section, select Parallel > Parallel Preferences.
+{: .callout}
 
 ## What happens when we execute the **parpool** command?
 To understand what happens when we use the **parpool** command,
 let us run following code:
-
 ~~~
 parpool(2)
 
