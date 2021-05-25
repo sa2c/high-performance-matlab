@@ -96,12 +96,11 @@ P>> mpiprofile viewer
 
 
 > ## Exercise - Profiling parallel direct solver
-> In this exercise, we use the code for parallel direct
-> solver from the *spmd* lesson to gain further 
+> In this exercise, we use the the folowing code to gain further 
 > understanding of `mpiprofile`.
 >
 > Use following code
-> to see which parts of the code are expensive, and 
+> to see which parts are expensive, and 
 > then think of solutions for improving the performance.
 > ~~~
 > P>> mpiprofile on
